@@ -8,7 +8,7 @@ const session = require('express-session');
 const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-
+const findOrCreate = require("mongoose-findOrCreate")
 const app = express();
 
 app.use(express.static("public"));
@@ -26,8 +26,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-mongoose.connect("mongodb://localhost:27017/userDB", {useNewUrlParser: true});
-mongoose.set("useCreateIndex", true);
+mongoose.connect("mongodb://localhost:27017/userDB", {});
 
 const userSchema = new mongoose.Schema ({
   email: String,
@@ -55,9 +54,11 @@ passport.deserializeUser(function(id, done) {
 passport.use(new GoogleStrategy({
     clientID: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
-    callbackURL: "http://www.example.com/auth/google/callback"
+    callbackURL: "http://localhost:3000/auth/google/secrets"
   },
   function(accessToken, refreshToken, profile, cb) {
+    console.log(profile);
+
     User.findOrCreate({ googleId: profile.id }, function (err, user) {
       return cb(err, user);
     });
@@ -67,9 +68,22 @@ passport.use(new GoogleStrategy({
 app.get("/", function(req, res){
   res.render("home");
 });
+app.get("/home", function(req, res){
+  res.render("home");
+});
+app.get("/auth/google", (req,res) => {
+  passport.authenticate("google", {scope:['profile']})(req, res, function() {
+    res.redirect("/secrets")
+  })
+})
 
+app.get("/auth/google/secrets",
+  passport.authenticate("google", {failureRedirect:"/home"}),
+  ((req, res)=> {
 
-
+  res.redirect("/secrets")
+}
+));
 
 app.get("/login", function(req, res){
   res.render("login");
@@ -95,7 +109,7 @@ app.post("/submit", function(req, res){
 });
 
 app.get("/logout", function(req, res){
-  req.logout();
+  req.logout(function(){});
   res.redirect("/");
 });
 
@@ -133,8 +147,10 @@ app.post("/login", function(req, res){
 
 });
 
-
-
+    // put in secrets.ejs file
+    // <% usersWithSecrets.forEach(function(user){ %>
+    //   <p class="secret-text"><%=user.secret%></p>
+    // <% }) %>
 
 
 
